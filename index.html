@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-AF8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学Ⅰ 中間考査 結果分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices:
+    - Overall Score (Report): Donut Chart (Chart.js) in Overview for quick % visualization. Goal: Inform. Interaction: Static. Justification: Standard.
+    - Score per Question Group (Report): Bar Chart (Chart.js) in Overview. Goal: Compare sections. Interaction: Tooltips. Justification: Easy comparison.
+    - Question Details (Text, Math, Score, Feedback from Report): Structured HTML (divs, lists, spans for math like 7/8 or x^2) for clarity. Goal: Detailed review. Interaction: Expand/collapse main questions, internal links from summary. Justification: Organized text.
+    - Overall Review/Improvements (Text from Report): Formatted HTML text. Goal: Actionable feedback. Interaction: Internal links. Justification: Direct access to important text.
+    CONFIRMING NO SVG/Mermaid, supporting the designed structure. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .section-title { font-size: 1.75rem; font-weight: 600; margin-bottom: 1rem; color: #4A5568; }
+        .nav-link { transition: color 0.3s ease, border-bottom-color 0.3s ease; }
+        .nav-link.active { color: #D97706; border-bottom-color: #D97706; }
+        .question-item { border-left-width: 4px; }
+        .status-correct { border-left-color: #16A34A; }
+        .status-incorrect { border-left-color: #DC2626; }
+        .status-partial { border-left-color: #F59E0B; }
+        .math-expr sup, .math-expr sub { font-size: 0.8em; line-height: 0; position: relative; vertical-align: baseline; }
+        .math-expr sup { top: -0.5em; }
+        .math-expr sub { bottom: -0.25em; }
+        .chart-container { position: relative; margin: auto; }
+        /* Ensure chart is responsive but also constrained */
+        .chart-container canvas { max-width: 100%; max-height: 100%; }
+        .clickable-improvement:hover { text-decoration: underline; color: #B45309; }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800">
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <h1 class="text-xl sm:text-2xl font-bold text-amber-700">数学Ⅰ 中間考査 結果分析</h1>
+                <nav class="space-x-4">
+                    <a href="#overview" class="nav-link text-stone-600 hover:text-amber-600 border-b-2 border-transparent pb-1">概要</a>
+                    <a href="#details" class="nav-link text-stone-600 hover:text-amber-600 border-b-2 border-transparent pb-1">設問別詳細</a>
+                    <a href="#review" class="nav-link text-stone-600 hover:text-amber-600 border-b-2 border-transparent pb-1">総評・改善点</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <section id="overview" class="mb-12 p-6 bg-white rounded-lg shadow">
+            <h2 class="section-title text-amber-600">試験結果概要</h2>
+            <p class="mb-6 text-stone-700">このセクションでは、試験全体の成績概要と主なポイントを視覚的に確認できます。合計得点と得点率、そして各問題ブロックごとの得点状況を把握しましょう。</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 items-center">
+                <div class="md:col-span-1 flex flex-col items-center justify-center p-6 bg-stone-50 rounded-lg">
+                    <p class="text-lg text-stone-700 mb-1">合計得点</p>
+                    <p class="text-5xl font-bold text-amber-600"><span id="totalScore">93</span> / <span id="maxScore">100</span> 点</p>
+                    <div class="chart-container h-48 w-48 sm:h-56 sm:w-56 mt-4">
+                        <canvas id="overallScoreChart"></canvas>
+                    </div>
+                </div>
+                <div class="md:col-span-2 p-6 bg-stone-50 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-3 text-stone-700">パフォーマンスサマリー</h3>
+                    <p class="mb-2 text-stone-600"><strong>良かった点:</strong> <span id="strengthsSummary"></span></p>
+                    <div class="mb-2 text-stone-600">
+                        <p><strong>要改善点:</strong></p>
+                        <ul id="weaknessesSummary" class="list-disc list-inside ml-4"></ul>
+                    </div>
+                     <div class="mt-6">
+                        <h3 class="text-xl font-semibold mb-3 text-stone-700">大問別得点状況</h3>
+                        <div class="chart-container h-64 w-full max-w-2xl">
+                             <canvas id="mainQuestionScoresChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="details" class="mb-12 p-6 bg-white rounded-lg shadow">
+            <h2 class="section-title text-amber-600">設問別詳細分析</h2>
+            <p class="mb-6 text-stone-700">ここでは、各設問ごとの解答、採点結果、およびフィードバックを詳しく確認できます。各項目をクリックすると詳細が表示されます。特に注意が必要な箇所を把握し、復習に役立てましょう。</p>
+            <div id="questionDetailsContainer" class="space-y-4">
+                </div>
+        </section>
+
+        <section id="review" class="p-6 bg-white rounded-lg shadow">
+            <h2 class="section-title text-amber-600">総評・改善点</h2>
+            <p class="mb-6 text-stone-700">試験全体の総評と、今後の学習に向けた具体的な改善点が示されています。指摘されたポイントを意識して、次のステップへ進みましょう。</p>
+            <div class="bg-stone-50 p-6 rounded-lg">
+                <h3 class="text-xl font-semibold mb-3 text-stone-700">総評</h3>
+                <p id="overallReviewText" class="text-stone-600 mb-6 whitespace-pre-line"></p>
+                <h3 class="text-xl font-semibold mb-3 text-stone-700">具体的な改善点</h3>
+                <ul id="improvementPointsList" class="list-disc list-inside space-y-2 text-stone-600">
+                    </ul>
+                <p id="reviewConclusionText" class="mt-6 text-stone-600 font-semibold"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center p-6 mt-12 text-sm text-stone-500">
+        &copy; 2025 数学Ⅰ学習サポート
+    </footer>
+
+    <script>
+        const examData = {
+            title: "令和7年度 農業科1年1学期中間考査 数学Ⅰ 解答",
+            totalScore: 93,
+            maxScore: 100,
+            questions: [
+                {
+                    id: "q1", title: "1. 次の計算をせよ。", pointsPossible: 14, pointsAchieved: 12,
+                    subQuestions: [
+                        { id: "q1_1", problemText: "(1) $-3-(-7)$", solution: "$-3+7 = 4$", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q1_2", problemText: "(2) $(-18)\\div9+2^{3}$", solution: "$-2+8 = 6$", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q1_3", problemText: "(3) $\\frac{7}{8}+\\frac{3}{8}\\times(-\\frac{2}{3})$", solution: "$\\frac{7}{8}-\\frac{1}{4}=\\frac{7}{8}-\\frac{2}{8}=\\frac{5}{8}$", score: "0/2点", status: "誤り", comment: "解答欄の19/24も誤り。計算ミス。" },
+                        { id: "q1_4", problemText: "(4) $8-\\{(6-4)^{2}\\times2-5\\}\\div3$", solution: "$8-\\{(2)^{2}\\times2-5\\}\\div3=8-\\{4\\times2-5\\}\\div3=8-\\{8-5\\}\\div3=8-3\\div3=8-1=7$", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q1_5", problemText: "(5) $(-2a+4)-(5a-11)$", solution: "$-2a+4-5a+11=-7a+15$", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q1_6", problemText: "(6) $3a\\times(-4a^{3})$", solution: "$3\\times(-4)\\times a^{1+3}=-12a^{4}$", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q1_7", problemText: "(7) $(-7x^{4}y^{3})^{2}$", solution: "$(-7)^{2}x^{4\\times2}y^{3\\times2}=49x^{8}y^{6}$", score: "2/2点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q2", title: "2. 次のものを、文字を使った式で表せ。", pointsPossible: 4, pointsAchieved: 2,
+                    subQuestions: [
+                        { id: "q2_1", problemText: "(1) ある数を2倍し、そこから7を引いた数", solution: "$2a-7$ (aは任意の文字)", score: "2/2点", status: "正解", comment: "" },
+                        { id: "q2_2", problemText: "(2) 1冊120円のノートをx冊買い、5000円札1枚で支払ったときのおつり", solution: "$5000-120x$ 円", score: "0/2点", status: "誤り", comment: "$-120x$ではおつりを表さない。" }
+                    ]
+                },
+                {
+                    id: "q3", title: "3. 次の問いに答えよ。", pointsPossible: 6, pointsAchieved: 6,
+                    subQuestions: [
+                        { id: "q3_1", problemText: "(1) 単項式 $-x^{5}$ の次数と係数を答えよ。", solution: "次数: 5, 係数: -1", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q3_2", problemText: "(2) 多項式 $4x+5-3x^{2}$ は何次式か。", solution: "2次式", score: "3/3点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q4", title: "4. 次の多項式の同類項をまとめ、次数の大きい項から順に並べてかきなさい。", pointsPossible: 6, pointsAchieved: 6,
+                    subQuestions: [
+                        { id: "q4_1", problemText: "(1) $4x-5-7x+2$", solution: "$(4x-7x)+(-5+2)=-3x-3$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q4_2", problemText: "(2) $-2x-8+5x^{2}-4x-3x^{2}+3$", solution: "$(5x^{2}-3x^{2})+(-2x-4x)+(-8+3)=2x^{2}-6x-5$", score: "3/3点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q5", title: "5. 次の式を展開せよ。", pointsPossible: 18, pointsAchieved: 18,
+                    subQuestions: [
+                        { id: "q5_1", problemText: "(1) $-2(3x^{2}-4x-1)$", solution: "$-6x^{2}+8x+2$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q5_2", problemText: "(2) $(x-2)(x^{2}-3x-5)$", solution: "$x^{3}-3x^{2}-5x-2x^{2}+6x+10=x^{3}-5x^{2}+x+10$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q5_3", problemText: "(3) $(x-8)^{2}$", solution: "$x^{2}-2\\times8\\times x+8^{2}=x^{2}-16x+64$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q5_4", problemText: "(4) $(3x+5)(3x-5)$", solution: "$(3x)^{2}-5^{2}=9x^{2}-25$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q5_5", problemText: "(5) $(x+6)(x-5)$", solution: "$x^{2}+(6-5)x+6\\times(-5)=x^{2}+x-30$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q5_6", problemText: "(6) $(4x-5)(2x-3)$", solution: "$8x^{2}-12x-10x+15=8x^{2}-22x+15$", score: "3/3点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q6", title: "6. 次の式を因数分解せよ。", pointsPossible: 18, pointsAchieved: 18,
+                    subQuestions: [
+                        { id: "q6_1", problemText: "(1) $x^{2}y-5xyz$", solution: "$xy(x-5z)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q6_2", problemText: "(2) $x^{2}+6x+5$", solution: "$(x+5)(x+1)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q6_3", problemText: "(3) $16x^{2}-y^{2}$", solution: "$(4x+y)(4x-y)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q6_4", problemText: "(4) $x^{2}+14x+49$", solution: "$(x+7)^{2}$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q6_5", problemText: "(5) $x^{2}-7x-8$", solution: "$(x-8)(x+1)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q6_6", problemText: "(6) $4a^{2}-12a+9$", solution: "$(2a-3)^{2}$", score: "3/3点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q7", title: "7. 次の式を因数分解せよ。【記述】", pointsPossible: 13, pointsAchieved: 13,
+                    subQuestions: [
+                        { id: "q7_1", problemText: "(1) $3x^{2}+10x+7$", solution: "たすき掛け: $(3x+7)(x+1)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q7_2", problemText: "(2) $2x^{2}-7x+6$", solution: "たすき掛け: $(2x-3)(x-2)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q7_3", problemText: "(3) $5x^{2}-7x-6$", solution: "たすき掛け: $(5x+3)(x-2)$", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q7_4", problemText: "(4) $8x^{2}+21x-9$", solution: "たすき掛け: $(8x-3)(x+3)$", score: "4/4点", status: "正解", comment: "(配点が高いので)" }
+                    ]
+                },
+                {
+                    id: "q8", title: "8. 次の式を展開せよ。【記述】", pointsPossible: 8, pointsAchieved: 8,
+                    subQuestions: [
+                        { id: "q8_1", problemText: "(1) $(x-y+2)^{2}$", solution: "$x-y=A$ とおくと $(A+2)^{2}=A^{2}+4A+4$\n$=(x-y)^{2}+4(x-y)+4$\n$=x^{2}-2xy+y^{2}+4x-4y+4$", score: "4/4点", status: "正解", comment: "" },
+                        { id: "q8_2", problemText: "(2) $(a-2b+1)(a-2b-2)$", solution: "$a-2b=A$ とおくと $(A+1)(A-2)=A^{2}-A-2$\n$=(a-2b)^{2}-(a-2b)-2$\n$=a^{2}-4ab+4b^{2}-a+2b-2$", score: "4/4点", status: "正解", comment: "" }
+                    ]
+                },
+                 {
+                    id: "q9", title: "9. 次の式を因数分解せよ。【記述】", pointsPossible: 8, pointsAchieved: 8,
+                    subQuestions: [
+                        { id: "q9_1", problemText: "(1) $(x+y)^{2}+4(x+y)$", solution: "$x+y=A$ とおくと $A^{2}+4A=A(A+4)$\n$=(x+y)(x+y+4)$", score: "4/4点", status: "正解", comment: "" },
+                        { id: "q9_2", problemText: "(2) $(x+y)^{2}-(x+y)-12$", solution: "$x+y=A$ とおくと $A^{2}-A-12=(A-4)(A+3)$\n$=(x+y-4)(x+y+3)$", score: "4/4点", status: "正解", comment: "" }
+                    ]
+                },
+                {
+                    id: "q10", title: "10. 次の図は、数学のテスト勉強をしたA君のノートの一部である。以下の問いに答えよ。【記述】", pointsPossible: 5, pointsAchieved: 5,
+                    subQuestions: [
+                        { id: "q10_1", problemText: "(1) A君が今後1人でこの問題を解けるように、あなたはA君にどんなアドバイスをしてあげますか?考えを記述せよ。", solution: "アドバイスの内容は採点基準に合致しています。\n・すべてかけ算に一度直して計算する。\n・かけ算とわり算の計算は左から順にするとよい。", score: "3/3点", status: "正解", comment: "" },
+                        { id: "q10_2", problemText: "(2) 正しい解答を答えよ。", solution: "$\\frac{15}{2}\\div3\\times5=\\frac{15}{2}\\times\\frac{1}{3}\\times5=\\frac{5}{2}\\times5=\\frac{25}{2}$", score: "2/2点", status: "正解", comment: "" }
+                    ]
+                }
+            ],
+            overallReview: {
+                summary: "全体的に見て、非常に良くできています。特に因数分解や展開、連立方程式といった主要な単元では、ほとんどの設問で満点を取れています。\nいくつか計算ミスが見られますが、基礎的な計算力は十分にあると思われます。",
+                improvements: [
+                    { text: "問1(3)の分数計算: 通分や約分の際にミスがありました。計算の正確性を高める練習が必要です。", linkTo: "q1_3" },
+                    { text: "問2(2)の文章問題: おつりを求める式を正しく立てられるように、問題文をよく読み、意味を理解する練習が必要です。", linkTo: "q2_2" }
+                ],
+                conclusion: "これらの点を克服することで、さらに高得点が期待できます。"
+            }
+        };
+
+        function formatMathExpr(text) {
+            if (!text) return "";
+            // Basic LaTeX to HTML conversion
+            let html = text.replace(/\_\{?([a-zA-Z0-9]+)\}?/g, '<sub>$1</sub>') // _{...} or _...
+                           .replace(/\^\{?([a-zA-Z0-9\+\-\×\s]+)\}?/g, '<sup>$1</sup>'); // ^{...} or ^...
+
+            // Fractions like \frac{a}{b}
+            html = html.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (match, num, den) => {
+                 return `<span class="math-expr"><sup>${formatMathExpr(num)}</sup>&frasl;<sub>${formatMathExpr(den)}</sub></span>`;
+            });
+             // Multiplication symbol
+            html = html.replace(/\\times/g, '×');
+            html = html.replace(/\\div/g, '÷');
+            return html;
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('totalScore').textContent = examData.totalScore;
+            document.getElementById('maxScore').textContent = examData.maxScore;
+            document.getElementById('strengthsSummary').textContent = examData.overallReview.summary.split('\n')[0];
+            
+            const weaknessesSummaryEl = document.getElementById('weaknessesSummary');
+            examData.overallReview.improvements.forEach(imp => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="#${imp.linkTo}" class="clickable-improvement text-red-600 hover:text-red-800">${imp.text.split(':')[0]}</a>: ${imp.text.split(':')[1]}`;
+                li.querySelector('a').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = e.target.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        const detailsElement = targetElement.querySelector('.sub-questions-container');
+                        if (detailsElement && detailsElement.classList.contains('hidden')) {
+                             targetElement.querySelector('button').click(); // Open if closed
+                        }
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetElement.classList.add('ring-2', 'ring-amber-500', 'transition-all', 'duration-300');
+                        setTimeout(() => targetElement.classList.remove('ring-2', 'ring-amber-500'), 2000);
+
+                    }
+                });
+                weaknessesSummaryEl.appendChild(li);
+            });
+
+
+            // Overall Score Chart
+            const ctxOverall = document.getElementById('overallScoreChart').getContext('2d');
+            new Chart(ctxOverall, {
+                type: 'doughnut',
+                data: {
+                    labels: ['得点', '失点'],
+                    datasets: [{
+                        data: [examData.totalScore, examData.maxScore - examData.totalScore],
+                        backgroundColor: ['#D97706', '#E5E7EB'],
+                        borderColor: ['#FFFFFF', '#FFFFFF'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+            
+            // Main Question Scores Chart
+            const mainQuestionLabels = examData.questions.map(q => q.title.split('.')[0]); // "1", "2", etc.
+            const mainQuestionAchievedScores = examData.questions.map(q => q.pointsAchieved);
+            const mainQuestionPossibleScores = examData.questions.map(q => q.pointsPossible);
+
+            const ctxMainScores = document.getElementById('mainQuestionScoresChart').getContext('2d');
+            new Chart(ctxMainScores, {
+                type: 'bar',
+                data: {
+                    labels: mainQuestionLabels,
+                    datasets: [
+                        {
+                            label: '獲得点数',
+                            data: mainQuestionAchievedScores,
+                            backgroundColor: '#D97706', // amber-600
+                            borderColor: '#B45309', // amber-700
+                            borderWidth: 1
+                        },
+                        {
+                            label: '満点',
+                            data: mainQuestionPossibleScores,
+                            backgroundColor: '#D1D5DB', // stone-300
+                            borderColor: '#9CA3AF', // stone-400
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: '点数' }
+                        },
+                        x: {
+                            title: { display: true, text: '大問番号' }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { mode: 'index', intersect: false }
+                    }
+                }
+            });
+
+
+            // Populate Question Details
+            const container = document.getElementById('questionDetailsContainer');
+            examData.questions.forEach(q => {
+                const mainQuestionDiv = document.createElement('div');
+                mainQuestionDiv.id = q.id;
+                mainQuestionDiv.className = 'question-item bg-stone-50 p-4 rounded-lg shadow-sm';
+                
+                let statusClass = 'status-partial';
+                if (q.pointsAchieved === q.pointsPossible) statusClass = 'status-correct';
+                else if (q.pointsAchieved === 0 && q.subQuestions.every(sq => sq.status === '誤り' || parseFloat(sq.score.split('/')[0]) === 0)) statusClass = 'status-incorrect';
+                mainQuestionDiv.classList.add(statusClass);
+
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex justify-between items-center cursor-pointer';
+                headerDiv.innerHTML = `
+                    <h3 class="text-lg font-semibold text-stone-700">${formatMathExpr(q.title)}</h3>
+                    <div class="flex items-center">
+                        <span class="text-sm font-medium mr-3 ${
+                            q.pointsAchieved === q.pointsPossible ? 'text-green-600' : (q.pointsAchieved === 0 ? 'text-red-600' : 'text-amber-600')
+                        }">${q.pointsAchieved} / ${q.pointsPossible}点</span>
+                        <button class="text-amber-600 hover:text-amber-700 focus:outline-none transform transition-transform duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                    </div>
+                `;
+
+                const subQuestionsContainer = document.createElement('div');
+                subQuestionsContainer.className = 'sub-questions-container mt-3 pt-3 border-t border-stone-200 hidden space-y-3';
+                
+                q.subQuestions.forEach(sq => {
+                    const sqDiv = document.createElement('div');
+                    sqDiv.id = sq.id;
+                    sqDiv.className = `p-3 rounded-md ${sq.status === '正解' ? 'bg-green-50' : 'bg-red-50'}`;
+                    sqDiv.innerHTML = `
+                        <p class="font-medium text-stone-700">${formatMathExpr(sq.problemText)}</p>
+                        <p class="text-sm text-stone-600 mt-1"><strong>正解:</strong> <span class="math-expr">${formatMathExpr(sq.solution)}</span></p>
+                        <p class="text-sm mt-1">
+                            <span class="font-semibold ${sq.status === '正解' ? 'text-green-700' : 'text-red-700'}">採点: ${sq.status} (${sq.score})</span>
+                            ${sq.comment ? `<span class="text-xs text-red-700 ml-2">(${sq.comment})</span>` : ''}
+                        </p>
+                    `;
+                    subQuestionsContainer.appendChild(sqDiv);
+                });
+
+                mainQuestionDiv.appendChild(headerDiv);
+                mainQuestionDiv.appendChild(subQuestionsContainer);
+                container.appendChild(mainQuestionDiv);
+
+                headerDiv.addEventListener('click', () => {
+                    subQuestionsContainer.classList.toggle('hidden');
+                    const icon = headerDiv.querySelector('svg');
+                    icon.parentElement.classList.toggle('rotate-180');
+                });
+            });
+
+            // Populate Overall Review
+            document.getElementById('overallReviewText').innerHTML = formatMathExpr(examData.overallReview.summary);
+            const improvementPointsList = document.getElementById('improvementPointsList');
+            examData.overallReview.improvements.forEach(item => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="#${item.linkTo}" class="clickable-improvement text-amber-700 hover:text-amber-800">${item.text.split(':')[0]}</a>: ${item.text.split(':')[1]}`;
+                 li.querySelector('a').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = e.target.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+                     if (targetElement) {
+                        const detailsElement = targetElement.querySelector('.sub-questions-container');
+                        if (detailsElement && detailsElement.classList.contains('hidden')) {
+                             targetElement.querySelector('button').click(); // Open if closed
+                        }
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetElement.classList.add('ring-2', 'ring-amber-500');
+                        setTimeout(() => targetElement.classList.remove('ring-2', 'ring-amber-500'), 2000);
+                    }
+                });
+                improvementPointsList.appendChild(li);
+            });
+            document.getElementById('reviewConclusionText').textContent = examData.overallReview.conclusion;
+
+            // Smooth scroll for nav links & active state
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('section');
+
+            function updateActiveLink() {
+                let currentSectionId = 'overview';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - 80; // Adjusted for sticky header
+                    if (window.scrollY >= sectionTop) {
+                        currentSectionId = section.id;
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.getAttribute('href').substring(1) === currentSectionId);
+                });
+            }
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href').substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 70, // Adjust for sticky header height
+                        behavior: 'smooth'
+                    });
+                });
+            });
+            
+            window.addEventListener('scroll', updateActiveLink);
+            updateActiveLink(); // Initial call
+        });
+    </script>
+</body>
+</html>
